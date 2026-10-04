@@ -177,15 +177,16 @@ class Controller2D(object):
             """
             #PID
             p_critical = 0.5 #0.5
+            T_osilation_peridod = 2 #2
             kp = 0.6 * p_critical 
-            ki = 0.5 * p_critical
-            kd = 0.125 * p_critical
+            ki = (1.2 * p_critical) / T_osilation_peridod
+            kd = 0.075 * p_critical * T_osilation_peridod
 
             t_cur = t
             t_pre = self.vars.t_previous
             dt = t_cur - t_pre
 
-            # calculation of error
+            # Ouput desired acceleration
             v_error_cur = v_desired - v
             v_error_pre = self.vars.lon_error_pre
             v_error_pre_integral = self.vars.lon_error_pre_integral
@@ -201,19 +202,22 @@ class Controller2D(object):
 
             a_des = kp * v_error_cur + ki *  v_error_integral + kd * v_error_dervative
 
-            # Feedforward
+            # Feedforward calculation based on desired speed at look-ahead waypoint
             look_ahead_steps = 20
             look_ahead_idx = min(self._closest_idx + look_ahead_steps, len(waypoints) - 1)
             look_ahead_pt = waypoints[look_ahead_idx]
             v_desired_forward = look_ahead_pt[2]
 
             print('look_ahead: ' + '[' + str(look_ahead_pt[0]) + ', ' + str(look_ahead_pt[1])+ ', ' + str(look_ahead_pt[2]))
+            # Linear interpolation of feedforward term based on desired speed
+            # y = y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+            # a desired need to be more than 0.15m/s to win over the friction force
             if v_desired_forward <= 6:
-                feedforward = 0.15 + v_desired_forward / 6 * (0.6 -0.15)
+                feedforward = 0.15 + v_desired_forward / 6 * (0.6 -0.15)                        # (x1,y1) = (0, 0.15), (x2,y2) = (6, 0.6)
             elif v_desired_forward <= 11.5:
-                feedforward = 0.6 + (v_desired_forward - 6) / (11.5 - 6) * (0.8 - 0.6)
+                feedforward = 0.6 + (v_desired_forward - 6) / (11.5 - 6) * (0.8 - 0.6)          # (x1,y1) = (6, 0.6), (x2,y2) = (11.5, 0.8)
             else:
-                feedforward = 0.8 + (v_desired_forward - 11.5) / 85
+                feedforward = 0.8 + (v_desired_forward - 11.5) / (28.5 - 11.5) * (1.0 - 0.8)    # (x1,y1) = (11.5, 0.8), (x2,y2) = (28.5, 1.0)
             
             throttle_pre = self.vars.throttle_previous
             if(a_des + feedforward > 0.05) :
@@ -252,9 +256,10 @@ class Controller2D(object):
             L = 1.5
 
             p_critical_lat = 0.5 #0.5
+            T_osilation_peridod_lat = 2 #2
             kp_lat = 0.6 * p_critical_lat 
-            ki_lat = 0.5 * p_critical_lat
-            kd_lat = 0.125 * p_critical_lat
+            ki_lat = (1.2 * p_critical_lat) / T_osilation_peridod_lat
+            kd_lat = 0.075 * p_critical_lat * T_osilation_peridod_lat
 
             # use the middle point in the given waypoints as the look ahead target
 #            look_ahead_index = len(waypoints)//2
